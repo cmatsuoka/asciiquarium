@@ -20,6 +20,11 @@
 #   Joan Stark: http://www.geocities.com/SoHo/7373/
 #     most of the ASCII art
 #
+#   Claudio Matsuoka <cmatsuoka@gmail.com>
+#     improved marine biodiversity (backported from the Asciiquarium Live
+#     Wallaper for Android)
+#     https://market.android.com/details?id=org.helllabs.android.asciiquarium
+#
 # License:
 #
 # Copyright (C) 2003 Kirk Baucom (kbaucom@schizoid.com)
@@ -46,7 +51,7 @@ use Curses;
 use strict;
 use warnings;
 
-my $version = "1.0";
+my $version = "1.1";
 my $new_fish = 1;
 my $new_monster = 1;
 
