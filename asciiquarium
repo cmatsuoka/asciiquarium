@@ -48,12 +48,21 @@ use Term::Animation 2.0;
 use Term::Animation::Entity;
 use Data::Dumper;
 use Curses;
+use Getopt::Std;
 use strict;
 use warnings;
 
 my $version = "1.1";
 my $new_fish = 1;
 my $new_monster = 1;
+
+our $opt_c;
+getopts('c');
+
+if ($opt_c) {			# 'classic' mode
+	$new_fish = 0;
+	$new_monster = 0;
+}
 
 my @random_objects = init_random_objects();
 
@@ -1475,4 +1484,9 @@ sub rand_color {
 		$color_mask =~ s/$i/$color/gm;
 	}
 	return $color_mask;
+}
+
+sub VERSION_MESSAGE {
+	print "asciiquarium $version\n";
+	exit;
 }

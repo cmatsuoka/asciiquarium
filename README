@@ -23,7 +23,9 @@ you might get it to run under cygwin).
 Usage
 -----
 
-There are no command line arguments.
+Command line arguments:
+	-c	"classic" mode, only show species from Asciiquarium 1.0
+
 While running:
 	q	quit
 	r	redraw (will recreate all entities)
