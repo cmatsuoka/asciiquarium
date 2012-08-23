@@ -11,6 +11,21 @@ Asciiquarium is a single perl script, so all you have to do is make sure
 it's executable and put it somewhere convenient, like /usr/local/bin or
 /usr/local/games.
 
+  Ubuntu
+  ------
+
+  Out-of-the-box ubuntu doesn't satisfy the Requirements below, so
+  here's how to get them:
+  1) Get perl's curses package which is available from apt:
+       sudo apt-get install libcurses-perl
+  2) Run
+       cpan
+     at the shell.  Agree to the defaults for everything.
+     To leave cpan, type 
+       quit
+  3) Type
+    sudo cpan Term::Animation
+
 Requirements
 ------------
 
