@@ -27,21 +27,21 @@
 #
 # License:
 #
-# Copyright (C) 2003 Kirk Baucom (kbaucom@schizoid.com)
+# Copyright (C) 2013 Kirk Baucom (kbaucom@schizoid.com)
 #
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version.
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #############################################################################
 
 use Term::Animation 2.0;
@@ -710,13 +710,23 @@ sub fish_callback {
 	}
 	return $fish->move_entity($anim);
 }
+
 sub fish_collision {
 	my ($fish, $anim) = @_;
 	my $collisions = $fish->collisions();
 	foreach my $col_obj (@{$collisions}) {
-		if($col_obj->type eq 'teeth' && $fish->height <= 5) {
+		if($col_obj->type eq 'teeth') {
 			add_splat($anim, $col_obj->position());
 			$fish->kill();
+			last;
+		} elsif($col_obj->type eq 'hook_point') {
+			retract($col_obj);
+			retract($fish);
+			# get the hook and line
+			my $hook = $anim->get_entities_of_type('fishhook')->[0];
+			my $line = $anim->get_entities_of_type('fishline')->[0];
+			retract($anim->entity($hook));
+			retract($anim->entity($line));
 			last;
 		}
 	}
@@ -852,7 +862,7 @@ q#
 		default_color	=> 'WHITE',
 		callback_args	=> [ $speed, 0, 0 ],
 		die_offscreen	=> 1,
-		death_cb	=> \&shark_death,
+		death_cb	=> sub { group_death(@_, 'teeth') },
 		default_color	=> 'CYAN',
 	);
 
@@ -860,13 +870,112 @@ q#
 
 # when a shark dies, kill the "teeth" too, the associated
 # entity that does the actual collision
-sub shark_death {
-	my ($shark, $anim) = @_;
-	my $teeth = $anim->get_entities_of_type('teeth');
-	foreach my $obj (@{$teeth}) {
-		$anim->del_entity($obj);
+sub group_death {
+	my ($entity, $anim, @bound_types) = @_;
+	foreach my $type (@bound_types) {
+		my $bound_entities = $anim->get_entities_of_type($type);
+		foreach my $obj (@{$bound_entities}) {
+			$anim->del_entity($obj);
+		}
 	}
-	random_object($shark, $anim);
+	random_object($entity, $anim);
+}
+
+# pull the fishhook, line and whatever got caught back
+# to the surface
+sub retract {
+	my ($entity) = @_;
+	$entity->physical(0);
+	if($entity->type eq 'fish') {
+		my @pos = $entity->position();
+		$pos[2] = $depth{'water_gap2'};
+		$entity->position( @pos );
+		$entity->callback( \&fishhook_cb );
+	} else {
+		$entity->callback_args( 'hooked' );
+	}
+}
+
+# move the fishhook
+sub fishhook_cb {
+	my ($entity, $anim) = @_;
+
+	my @pos = $entity->position;
+
+	# this means we hooked something, reel it in
+	if(defined($entity->callback_args())) {
+		$pos[1]--;
+
+	# otherwise, just lower until we reach 1/4 from the bottom
+	} else {
+		if( ( $pos[1] + $entity->height) < $anim->height * .75) {
+			$pos[1]++;
+		}
+	}
+
+	return @pos;
+}
+
+sub add_fishhook {
+	my ($old_ent, $anim) = @_;
+
+	my $hook_image =
+q{
+       o
+      ||
+      ||
+/ \   ||
+  \__//
+  `--'
+};
+
+	my $point_image =
+q{
+.
+
+\
+
+};
+	my $line_image = "|\n"x50 . " \n"x6;
+
+	my $x = 10 + ( int(rand($anim->width() - 20)) );
+	my $y = -4;
+	my $point_x = $x + 1;
+	my $point_y = $y + 2;
+
+	$anim->new_entity(
+		type		=> 'fishline',
+		shape		=> $line_image,
+		position	=> [ $x + 7, $y - 50, $depth{'water_line1'} ],
+		auto_trans	=> 1,
+		callback_args	=> undef,
+		callback	=> \&fishhook_cb,
+	);
+
+	$anim->new_entity(
+		type		=> 'fishhook',
+		shape		=> $hook_image,
+		trans_char	=> ' ',
+		position	=> [ $x, $y, $depth{'water_line1'} ],
+		auto_trans	=> 1,
+		die_offscreen	=> 1,
+		death_cb	=> sub { group_death(@_, 'teeth', 'fishline') },
+		default_color	=> 'GREEN',
+		callback_args	=> undef,
+		callback	=> \&fishhook_cb,
+	);
+
+	$anim->new_entity(
+		type		=> 'hook_point',
+		shape		=> $point_image,
+		position	=> [ $point_x, $point_y, $depth{'shark'}+1 ],
+		depth		=> $depth{'fish_end'} - $depth{'fish_start'},
+		callback_args	=> undef,
+		physical	=> 1,
+		default_color	=> 'GREEN',
+		callback	=> \&fishhook_cb,
+
+	);
 }
 
 sub add_ship {
@@ -1412,14 +1521,249 @@ q{
 	);
 }
 
+sub add_ducks {
+	my ($old_ent, $anim) = @_;
+	my @duck_image = (
+	[
+q{
+      _??????????_??????????_
+,____(')=??,____(')=??,____(')<
+ \~~= ')????\~~= ')????\~~= ')
+},q{
+      _??????????_??????????_
+,____(')=??,____(')<??,____(')=
+ \~~= ')????\~~= ')????\~~= ')
+},q{
+      _??????????_??????????_
+,____(')<??,____(')=??,____(')=
+ \~~= ')????\~~= ')????\~~= ')
+}
+	],[
+q{
+  _??????????_??????????_
+>(')____,??=(')____,??=(')____,
+ (` =~~/????(` =~~/????(` =~~/
+},q{
+  _??????????_??????????_
+=(')____,??>(')____,??=(')____,
+ (` =~~/????(` =~~/????(` =~~/
+},q{
+  _??????????_??????????_
+=(')____,??=(')____,??>(')____,
+ (` =~~/????(` =~~/????(` =~~/
+}
+	]
+	);
+
+	my @duck_mask = (
+q{
+      g          g          g
+wwwwwgcgy  wwwwwgcgy  wwwwwgcgy
+ wwww Ww    wwww Ww    wwww Ww
+},q{
+  g          g          g
+ygcgwwwww  ygcgwwwww  ygcgwwwww
+ wW wwww    wW wwww    wW wwww
+});
+
+	my $dir = int(rand(2));
+	my $x;
+	my $speed = 1;
+	if($dir) {
+		$speed *= -1;
+		$x = $anim->width()-2;
+	} else {
+		$x = -30
+	}
+
+	$anim->new_entity(
+		shape		=> $duck_image[$dir],
+		auto_trans	=> 1,
+		color		=> $duck_mask[$dir],
+		position	=> [ $x, 5, $depth{'water_gap3'} ],
+		callback_args	=> [ $speed, 0, 0, .25 ],
+		death_cb	=> \&random_object,
+		die_offscreen	=> 1,
+		default_color	=> 'WHITE',
+	);
+}
+
+sub add_dolphins {
+	my ($old_ent, $anim) = @_;
+	my @dolphin_image = (
+	[
+q{
+        ,
+      __)\_
+(\_.-'    a`-.
+(/~~````(/~^^`
+},q{
+        ,
+(\__  __)\_
+(/~.''    a`-.
+    ````\)~^^`
+}
+	],[
+q{
+     ,
+   _/(__
+.-'a    `-._/)
+'^^~\)''''~~\)
+},q{
+     ,
+   _/(__  __/)
+.-'a    ``.~\)
+'^^~(/''''
+}
+	]
+	);
+
+
+	my @dolphin_mask = (
+q{
+
+
+          W
+},q{
+
+
+   W
+});
+
+
+	my $dir = int(rand(2));
+
+	my $x;
+	my $speed = 1;
+	my $distance = 15; # how far apart the dolphins are
+
+	# right to left
+	if($dir) {
+		$speed *= -1;
+		$distance *= -1;
+		$x = $anim->width()-2;
+
+	# left to right
+	} else {
+		$x = -13
+	}
+
+	my $up = [$speed,-.5,0,.5];
+	my $down = [$speed,.5,0,.5];
+	my $glide = [$speed,0,0,.5];
+
+	my @path;
+
+	for(1..14) { push(@path, $up); }
+	for(1..2) { push(@path, $glide); }
+	for(1..14) { push(@path, $down); }
+	for(1..6) { push(@path, $glide); }
+
+	my $dolphin3 = $anim->new_entity(
+		shape		=> $dolphin_image[$dir],
+		auto_trans	=> 1,
+		color		=> $dolphin_mask[$dir],
+		position	=> [ $x - ($distance * 2), 8, $depth{'water_gap3'} ],
+		callback_args	=> [ 0, [@path] ],
+		death_cb	=> \&random_object,
+		die_offscreen	=> 0,
+		default_color	=> 'blue',
+	);
+
+	my $dolphin2 = $anim->new_entity(
+		shape		=> $dolphin_image[$dir],
+		auto_trans	=> 1,
+		color		=> $dolphin_mask[$dir],
+		position	=> [ $x - $distance, 2, $depth{'water_gap3'} ],
+		callback_args	=> [ 12, [@path] ],
+		die_offscreen	=> 0,
+		default_color	=> 'BLUE',
+	);
+
+	my $dolphin1 = $anim->new_entity(
+		shape		=> $dolphin_image[$dir],
+		auto_trans	=> 1,
+		color		=> $dolphin_mask[$dir],
+		position	=> [ $x, 5, $depth{'water_gap3'} ],
+		callback_args	=> [ 24, [@path] ],
+		# have the lead dolphin tell the others to die offscreen, since they start offscreen
+		death_cb	=> sub{ $dolphin2->die_offscreen(1); $dolphin3->die_offscreen(1) },
+		die_offscreen	=> 1,
+		default_color	=> 'CYAN',
+	);
+
+}
+
+sub add_swan {
+	my ($old_ent, $anim) = @_;
+	my @swan_image = (
+	[
+q{
+       ___
+,_    / _,\
+| \   \( \|
+|  \_  \\\
+(_   \_) \
+(\_   `   \
+ \   -=~  /
+}
+	],[
+q{
+ ___
+/,_ \    _,
+|/ )/   / |
+  //  _/  |
+ / ( /   _)
+/   `   _/)
+\  ~=-   /
+}
+	]
+	);
+
+	my @swan_mask = (
+q{
+
+         g
+         yy
+},q{
+
+ g
+yy
+});
+
+	my $dir = int(rand(2));
+	my $x;
+	my $speed = 1;
+	if($dir) {
+		$speed *= -1;
+		$x = $anim->width()-2;
+	} else {
+		$x = -10
+	}
+
+	$anim->new_entity(
+		shape		=> $swan_image[$dir],
+		auto_trans	=> 1,
+		color		=> $swan_mask[$dir],
+		position	=> [ $x, 1, $depth{'water_gap3'} ],
+		callback_args	=> [ $speed, 0, 0, .25 ],
+		death_cb	=> \&random_object,
+		die_offscreen	=> 1,
+		default_color	=> 'WHITE',
+	);
+}
+
 sub init_random_objects {
-	#return ( \&add_shark );
 	return (
 		\&add_ship,
 		\&add_whale,
 		\&add_monster,
 		\&add_big_fish,
 		\&add_shark,
+		\&add_fishhook,
+		\&add_swan,
+		\&add_ducks,
+		\&add_dolphins,
 	);
 }
 
