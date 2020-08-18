@@ -1412,6 +1412,82 @@ q{
 	);
 }
 
+sub add_sword_fish {
+  my ($old_end, $anim) = @_;
+
+  my @sword_fish_image = (
+q{
+                             )",
+_                           /\\\\\\\\
+ ",            _____,,,,,--\\\\\\\\\\\\)
+  \\\\        ,,;_______\\\\\\\\\\----""";_
+   )\\_.-'`"""""......-------------,o";__________
+   ==.-.,____           """;;;;,__._.=='""
+   )\\    "   "\\""---;...,______:.-"
+  //           ")_.-`      _.-'
+_.'                    _.-'
+},
+q{
+                ,"(
+               ////\                           _
+              (//////--,,,,,_____            ,"
+            _;"""----/////_______;,,        //
+__________;"o,-------------......"""""`'-._/(
+      ""'==._.__,;;;;"""           ____,.-.==
+             "-.:______,...;---""/"   "    \\(
+                 '-._      `-._("           \\\\
+                     '-._                    '._
+});
+
+  my @sword_fish_mask = (
+q{
+                             222
+6                           22222
+ 66            2222222222222222222
+  66        111111111111111111111111
+   666111111111111111111111111111144455555555555
+   6661111111           111777711111155555
+   66   1   11111111111111111111111
+  66          3333333      3333
+666                    3333
+},
+q{
+                222
+               22222                           6
+              2222222222222222222            66
+            111111111111111111111111        66
+555555555554441111111111111111111111111111666
+      555551111117777111           1111111666
+             11111111111111111111111   1   66
+                 3333      3333333          66
+                     3333                    666
+});
+
+	my $dir = int(rand(2));
+	my $x;
+	my $speed = 3.5;
+	if($dir) {
+		$x = $anim->width()-1;
+		$speed *= -1;
+	} else {
+		$x = -33;
+	}
+	my $max_height = 9;
+	my $min_height = $anim->height() - 14;
+	my $y = int(rand($min_height - $max_height)) + $max_height;
+	my $color_mask = rand_color($sword_fish_mask[$dir]);
+	$anim->new_entity(
+		shape		=> $sword_fish_image[$dir],
+		auto_trans	=> 1,
+		color		=> $color_mask,
+		position	=> [ $x, $y, $depth{'shark'} ],
+		callback_args	=> [ $speed, 0, 0 ],
+		death_cb	=> \&random_object,
+		die_offscreen	=> 1,
+		default_color	=> 'YELLOW',
+	);
+}
+
 sub init_random_objects {
 	#return ( \&add_shark );
 	return (
@@ -1419,6 +1495,7 @@ sub init_random_objects {
 		\&add_whale,
 		\&add_monster,
 		\&add_big_fish,
+    \&add_sword_fish,
 		\&add_shark,
 	);
 }
