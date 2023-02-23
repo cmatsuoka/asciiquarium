@@ -1495,7 +1495,7 @@ sub init_random_objects {
 		\&add_whale,
 		\&add_monster,
 		\&add_big_fish,
-    \&add_sword_fish,
+		\&add_sword_fish,
 		\&add_shark,
 	);
 }
