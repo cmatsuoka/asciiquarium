@@ -9,3 +9,11 @@ based on
 
 
 Asciiquarium is an aquarium/sea animation in ASCII art.
+
+**Run as container**
+
+
+\$git clone https://github.com/salvadorrueda/asciiquarium/
+\$cd asciiquarium
+\$docker build -t asciiquarium .
+\$docker run -it --rm asciiquarium
